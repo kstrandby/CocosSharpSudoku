@@ -292,26 +292,16 @@ namespace CocosSharpSudoku
         // Backtracking sudoku generating algorithm
         private void GenerateSudoku()
         {
-            bool continueToNextSquare = true;
-
-            for(int i = 0; i < 9; i++)
+            for (int i = 0; i < 9; i++)
             {
-                for(int j = 0; j < 9; j++)
+                for (int j = 0; j < 9; j++)
                 {
-                    //PrintSudoku();
-                    //if(!continueToNextSquare)
-                    //{
-                    //    if (j > 0) j--;
-                    //    else if (j == 0 && i > 0) i--;
-                    //    continueToNextSquare = true;
-                    //}
-                    // Check if we are out of available numbers for the square
-                    if (_sudoku[i,j].HasAvailableNumbers())
+                    if (_sudoku[i, j].HasAvailableNumbers())
                     {
                         // If not: Get a number from the available numbers for the square
                         int potentialNumber = _sudoku[i, j].GetAvailableNumber();
                         // Check if that number conflicts 
-                        if(!NumberIsConflicting(potentialNumber, i, j))
+                        if (!NumberIsConflicting(potentialNumber, i, j))
                         {
                             // If not: Use the number and remove it from the list of available numbers
                             _sudoku[i, j].Value = potentialNumber;
@@ -340,24 +330,10 @@ namespace CocosSharpSudoku
                             j--;
                             if (i > 0) i--;
                         }
-                       
+
                     }
                 }
             }
-
-            // Start with the first square
-
-            // Check if we are out of available numbers for the square
-            // If yes: 
-            //      Go back 1 square
-            // If no:
-            //      Get a number from the available numbers for the square
-            //      Check if that number conflicts 
-            //      If yes:
-            //          Remove that number from available numbers for the square
-            //      If no:
-            //          Use the number
-            // Go forward 1 square
         }
 
         private bool NumberIsConflicting(int potentialNumber, int i, int j)

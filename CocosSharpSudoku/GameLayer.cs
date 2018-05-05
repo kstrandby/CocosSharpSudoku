@@ -4,29 +4,22 @@ using CocosDenshion;
 using CocosSharp;
 using System.Linq;
 
-
-// TODO:
-// Fix hardcoded scaling to fix with resolution
-// Not sure if I need IndexI and IndexJ in boardsquare
-
 namespace CocosSharpSudoku
 {
     public struct BoardSquare
     {
-        public CCPoint Location;
+        public CCPoint Location; 
         public CCLabel Label;
         public bool ShouldRedraw;
-        public int IndexI, IndexJ;
 
-        public BoardSquare(CCPoint location, CCLabel label, int indexI, int indexJ) : this()
+        public BoardSquare(CCPoint location, CCLabel label) : this()
         {
             this.Location = location;
             this.Label = label;
             this.ShouldRedraw = false;
-            this.IndexI = indexI;
-            this.IndexJ = indexJ;
         }
     }
+
     public class GameLayer : CCLayerColor
     {
         CCSprite menuOption, newGame;
@@ -254,7 +247,7 @@ namespace CocosSharpSudoku
                     label.Color = new CCColor3B(Common.color5);
                     AddChild(label);
 
-                    _board[indexI, indexJ] = new BoardSquare(point, label, indexI, indexJ);
+                    _board[indexI, indexJ] = new BoardSquare(point, label);
                     drawNode.DrawRect(new CCRect(i, j, _fieldSize, _fieldSize),
                         fillColor: CCColor4B.White,
                         borderWidth: 1,

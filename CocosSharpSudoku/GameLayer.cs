@@ -10,13 +10,37 @@ namespace CocosSharpSudoku
     {
         public CCPoint Location; 
         public CCLabel Label;
+        public CCRect Rect;
         public bool ShouldRedraw;
+        public bool IsChosen;
 
-        public BoardSquare(CCPoint location, CCLabel label) : this()
+        public BoardSquare(CCPoint location, CCLabel label, CCRect rect) : this()
         {
             this.Location = location;
             this.Label = label;
+            this.Rect = rect;
             this.ShouldRedraw = false;
+            this.IsChosen = false;
+        }
+    }
+
+    public struct Field
+    {
+        public int I, J;
+
+        public Field(int i, int j)
+        {
+            this.I = i;
+            this.J = j;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (!(obj is Field)) return false;
+
+            Field other = (Field) obj;
+            if (I == other.I && J == other.J) return true;
+            else return false;
         }
     }
 
@@ -33,6 +57,9 @@ namespace CocosSharpSudoku
         private CCSprite[] _numbers;
         private int _currentChosenNumber;
         private int _previouslyChosenNumber;
+        private Field _previouslyChosenField;
+        private Field _currentlyChosenField;
+        private CCDrawNode _drawNode;
 
         public GameLayer() : base(Common.color1)
         {
@@ -41,6 +68,7 @@ namespace CocosSharpSudoku
             _board = new BoardSquare[9, 9];
             _numbers = new CCSprite[9];
             _currentChosenNumber = _previouslyChosenNumber = 0;
+
         }
 
         protected override void AddedToScene()
@@ -104,24 +132,41 @@ namespace CocosSharpSudoku
                 {
                     if (_board[i,j].ShouldRedraw)
                     {
-                        _board[i, j].Label.Text = _currentSudoku[i, j].Value.ToString();
+                        if(_board[i,j].IsChosen)
+                        {
+                            _drawNode.DrawRect(_board[i, j].Rect, fillColor: Common.color2, borderWidth: 1, borderColor: Common.color5);
+                        }
+                        else
+                        {
+                            _drawNode.DrawRect(_board[i, j].Rect, fillColor: CCColor4B.White, borderWidth: 1, borderColor: Common.color5);
+                        }
                         _board[i, j].ShouldRedraw = false;
                     }
                 }
             }
-            
         }
 
         private void UpdateChosenField()
         {
-            //throw new NotImplementedException();
+            if (!_currentlyChosenField.Equals(_previouslyChosenField))
+            {   
+                if (!_previouslyChosenField.Equals(default(Field)))
+                {
+                    _board[_previouslyChosenField.I, _previouslyChosenField.J].ShouldRedraw = true;
+                    _board[_previouslyChosenField.I, _previouslyChosenField.J].IsChosen = false;
+                }
+
+                _board[_currentlyChosenField.I, _currentlyChosenField.J].ShouldRedraw = true;
+                _board[_currentlyChosenField.I, _currentlyChosenField.J].IsChosen = true;
+
+                _previouslyChosenField = _currentlyChosenField;
+            }
         }
 
         private void UpdateChosenNumber()
         {
             if(_currentChosenNumber != _previouslyChosenNumber)
             {
-
                 string spriteFrame = _currentChosenNumber + "_selected";
 
                 CCPoint position = _numbers[_currentChosenNumber - 1].Position;
@@ -173,15 +218,13 @@ namespace CocosSharpSudoku
             {
                 Console.WriteLine(touches[0].Location.X + "," + touches[0].Location.Y);
 
-                Tuple<int,int> clickedSquare = GetTouchedSquare(touches[0].Location);
-                if (clickedSquare != null)
+                Field clickedField = GetTouchedField(touches[0].Location);
+                if (!clickedField.Equals(default(Field)))
                 {
-                    if(_currentChosenNumber != 0)
-                    {
-                        _currentSudoku[clickedSquare.Item1, clickedSquare.Item2].Value = _currentChosenNumber;
-                        _board[clickedSquare.Item1, clickedSquare.Item2].ShouldRedraw = true;
-                    }
-                    Console.WriteLine("Square touched: " + clickedSquare.Item1 + "," + clickedSquare.Item2+ " Value: " + _currentChosenNumber);
+                    _board[clickedField.I, clickedField.J].ShouldRedraw = true;
+                    _board[clickedField.I, clickedField.J].IsChosen = true;
+                    _currentlyChosenField = clickedField;
+                    Console.WriteLine("Square touched: " + clickedField.I + "," + clickedField.J+ " Value: " + _currentChosenNumber);
                 }
 
                 for (int i = 0; i < 9; i++)
@@ -195,9 +238,9 @@ namespace CocosSharpSudoku
             }
         }
 
-        private Tuple<int, int> GetTouchedSquare(CCPoint location)
+        private Field GetTouchedField(CCPoint location)
         {
-            Tuple<int, int> indices = null;
+            Field field = new Field();
             for (int i = 0; i < 9; i++)
             {
                 for (int j = 0; j < 9; j++)
@@ -210,25 +253,26 @@ namespace CocosSharpSudoku
                     if (location.X > leftBorder && location.X < rightBorder &&
                         location.Y > bottomBorder && location.Y < topBorder)
                     {
-                        indices = new Tuple<int, int>(i, j);
+                        field.I = i;
+                        field.J = j;
                     }
                 }
             }
-            return indices;
+            return field;
         }
 
         private void DrawSudokuBoard()
         {
-            var drawNode = new CCDrawNode();
+            _drawNode = new CCDrawNode();
 
-            this.AddChild(drawNode);
+            this.AddChild(_drawNode);
 
             // Origin is bottom-left of the screen. This moves
-            // the drawNode 100 pixels to the right and 100 pixels up
+            // the _drawNode 100 pixels to the right and 100 pixels up
             float xBorder = (_bounds.Size.Width - (9 * _fieldSize)) / 2;
             float yBorder = (_bounds.Size.Height - (9 * _fieldSize)) / 2;
-            drawNode.PositionX = xBorder;
-            drawNode.PositionY = yBorder;
+            _drawNode.PositionX = xBorder;
+            _drawNode.PositionY = yBorder;
 
 
             // Draw all the 9 x 9 fields
@@ -242,13 +286,13 @@ namespace CocosSharpSudoku
                     float y = j + yBorder + (_fieldSize / 2);
                     CCLabel label = new CCLabel(" ", "Arial", 50, CCLabelFormat.SystemFont);
                     CCPoint point = new CCPoint(x, y);
-
+                    CCRect rect = new CCRect(i, j, _fieldSize, _fieldSize);
                     label.Position = point;
                     label.Color = new CCColor3B(Common.color5);
                     AddChild(label);
 
-                    _board[indexI, indexJ] = new BoardSquare(point, label);
-                    drawNode.DrawRect(new CCRect(i, j, _fieldSize, _fieldSize),
+                    _board[indexI, indexJ] = new BoardSquare(point, label, rect);
+                    _drawNode.DrawRect(rect,
                         fillColor: CCColor4B.White,
                         borderWidth: 1,
                         borderColor: Common.color5);
@@ -261,7 +305,7 @@ namespace CocosSharpSudoku
             {
                 for (var j = 0; j < (3 * bigFieldSize); j += bigFieldSize)
                 {
-                    drawNode.DrawRect(new CCRect(i, j, bigFieldSize, bigFieldSize),
+                    _drawNode.DrawRect(new CCRect(i, j, bigFieldSize, bigFieldSize),
                         fillColor: CCColor4B.Transparent,
                         borderWidth: 3,
                         borderColor: Common.color5);

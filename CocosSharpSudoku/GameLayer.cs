@@ -61,6 +61,9 @@ namespace CocosSharpSudoku
         private Field _currentlyChosenField;
         private CCDrawNode _drawNode;
 
+        private float _secondsSinceLastUpdate = 0.0f;
+        private const float TIME_TO_UPDATE = 0.2f;
+
         public GameLayer() : base(Common.color1)
         {
             _fullSudoku = new Sudoku();
@@ -117,11 +120,18 @@ namespace CocosSharpSudoku
             Schedule(RunGameLogic);
         }
 
+        // frameTimeInSeconds is the number of seconds that have passed since the last time RunGameLogic was called
+        // Is called 60 times a second
         private void RunGameLogic(float frameTimeInSeconds)
         {
-            UpdateChosenNumber();
-            UpdateChosenField();
-            UpdateBoard();
+            _secondsSinceLastUpdate += frameTimeInSeconds;
+            if (_secondsSinceLastUpdate >= TIME_TO_UPDATE)
+            {
+                UpdateChosenField();
+                UpdateBoard();
+                DrawOuterFields();
+                _secondsSinceLastUpdate = 0.0f;
+            }
         }
 
         private void UpdateBoard()
@@ -132,9 +142,14 @@ namespace CocosSharpSudoku
                 {
                     if (_board[i,j].ShouldRedraw)
                     {
-                        if(_board[i,j].IsChosen)
+                        if (_currentSudoku[i, j].Value != 0)
                         {
-                            _drawNode.DrawRect(_board[i, j].Rect, fillColor: Common.color2, borderWidth: 1, borderColor: Common.color5);
+                            _board[i, j].Label.Text = _currentSudoku[i, j].Value.ToString();
+                        }
+
+                        if (_board[i, j].IsChosen)
+                        {
+                            _drawNode.DrawRect(_board[i, j].Rect, fillColor: Common.color1, borderWidth: 1, borderColor: Common.color5);
                         }
                         else
                         {
@@ -150,7 +165,7 @@ namespace CocosSharpSudoku
         {
             if (!_currentlyChosenField.Equals(_previouslyChosenField))
             {   
-                if (!_previouslyChosenField.Equals(default(Field)))
+                if (!_previouslyChosenField.Equals(default(Field))) // Not the first time any field is chosen
                 {
                     _board[_previouslyChosenField.I, _previouslyChosenField.J].ShouldRedraw = true;
                     _board[_previouslyChosenField.I, _previouslyChosenField.J].IsChosen = false;
@@ -160,39 +175,6 @@ namespace CocosSharpSudoku
                 _board[_currentlyChosenField.I, _currentlyChosenField.J].IsChosen = true;
 
                 _previouslyChosenField = _currentlyChosenField;
-            }
-        }
-
-        private void UpdateChosenNumber()
-        {
-            if(_currentChosenNumber != _previouslyChosenNumber)
-            {
-                string spriteFrame = _currentChosenNumber + "_selected";
-
-                CCPoint position = _numbers[_currentChosenNumber - 1].Position;
-                _numbers[_currentChosenNumber - 1].Dispose();
-                _numbers[_currentChosenNumber - 1] = new CCSprite(spriteFrame);
-                _numbers[_currentChosenNumber - 1].Scale = 0.15f;
-                _numbers[_currentChosenNumber - 1].Position = position;
-                AddChild(_numbers[_currentChosenNumber - 1]);
-
-                if (_previouslyChosenNumber != 0)
-                {
-                    spriteFrame = _previouslyChosenNumber.ToString();
-
-                    position = _numbers[_previouslyChosenNumber - 1].Position;
-                    _numbers[_previouslyChosenNumber - 1].Dispose();
-                    _numbers[_previouslyChosenNumber - 1] = new CCSprite(spriteFrame);
-                    _numbers[_previouslyChosenNumber - 1].Scale = 0.15f;
-                    _numbers[_previouslyChosenNumber - 1].Position = position;
-                    AddChild(_numbers[_previouslyChosenNumber - 1]);
-
-                    _previouslyChosenNumber = _currentChosenNumber;
-                }
-                else
-                {
-                    _previouslyChosenNumber = _currentChosenNumber;
-                }
             }
         }
 
@@ -218,6 +200,7 @@ namespace CocosSharpSudoku
             {
                 Console.WriteLine(touches[0].Location.X + "," + touches[0].Location.Y);
 
+                // Check for board fields touched
                 Field clickedField = GetTouchedField(touches[0].Location);
                 if (!clickedField.Equals(default(Field)))
                 {
@@ -227,12 +210,19 @@ namespace CocosSharpSudoku
                     Console.WriteLine("Square touched: " + clickedField.I + "," + clickedField.J+ " Value: " + _currentChosenNumber);
                 }
 
+                // Check for numbers touched
                 for (int i = 0; i < 9; i++)
                 {
                     if(_numbers[i].BoundingBoxTransformedToWorld.ContainsPoint(touches[0].Location))
                     {
+
                         _currentChosenNumber = i + 1;
                         Console.WriteLine("Number touched: " + (i + 1));
+                        if(!_currentlyChosenField.Equals(default(Field)))
+                        {
+                            _currentSudoku[_currentlyChosenField.I, _currentlyChosenField.J].Value = _currentChosenNumber;
+                            _board[_currentlyChosenField.I, _currentlyChosenField.J].ShouldRedraw = true;
+                        }
                     }
                 }
             }
@@ -299,6 +289,13 @@ namespace CocosSharpSudoku
                 }
             }
 
+            DrawOuterFields();
+
+        }
+
+
+        private void DrawOuterFields()
+        {
             // Draw the 9 big fields with thicker border
             int bigFieldSize = 3 * _fieldSize;
             for (var i = 0; i < (3 * bigFieldSize); i += bigFieldSize)

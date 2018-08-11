@@ -11,8 +11,10 @@ namespace CocosSharpSudoku
         public CCPoint Location; 
         public CCLabel Label;
         public CCRect Rect;
+        public CCColor4B Color;
         public bool ShouldRedraw;
         public bool IsChosen;
+        public bool IsClashing;
 
         public BoardSquare(CCPoint location, CCLabel label, CCRect rect) : this()
         {
@@ -21,6 +23,8 @@ namespace CocosSharpSudoku
             this.Rect = rect;
             this.ShouldRedraw = false;
             this.IsChosen = false;
+            this.IsClashing = false;
+            this.Color = CCColor4B.White;
         }
     }
 
@@ -41,6 +45,11 @@ namespace CocosSharpSudoku
             Field other = (Field) obj;
             if (I == other.I && J == other.J) return true;
             else return false;
+        }
+
+        internal bool IsValid()
+        {
+            return (I > -1 && J > -1);
         }
     }
 
@@ -71,6 +80,8 @@ namespace CocosSharpSudoku
             _board = new BoardSquare[9, 9];
             _numbers = new CCSprite[9];
             _currentChosenNumber = _previouslyChosenNumber = 0;
+            _currentlyChosenField = new Field(-1, -1);
+            _previouslyChosenField = new Field(-1, -1);
 
         }
 
@@ -128,9 +139,35 @@ namespace CocosSharpSudoku
             if (_secondsSinceLastUpdate >= TIME_TO_UPDATE)
             {
                 UpdateChosenField();
+                CheckForClashingNumbers();
                 UpdateBoard();
-                DrawOuterFields();
+                DrawRegionBorders();
                 _secondsSinceLastUpdate = 0.0f;
+            }
+        }
+
+        private void CheckForClashingNumbers()
+        {
+            for(int i = 0; i < 9; i++)
+            {
+                for(int j = 0; j < 9; j++)
+                {
+                    if (NumberIsClashing(i, j))
+                    {
+                        _board[i, j].ShouldRedraw = true;
+                        _board[i, j].IsClashing = true;
+                        _board[i, j].Color = CCColor4B.Red;
+                    }
+                    else
+                    {
+                        if(_board[i,j].IsClashing) // number was clashing but is not any longer
+                        {
+                            _board[i, j].ShouldRedraw = true;
+                            _board[i, j].Color = CCColor4B.White;
+                        }
+                        _board[i, j].IsClashing = false;
+                    }
+                }
             }
         }
 
@@ -142,30 +179,200 @@ namespace CocosSharpSudoku
                 {
                     if (_board[i,j].ShouldRedraw)
                     {
-                        if (_currentSudoku[i, j].Value != 0)
+                        if (_currentSudoku[i, j].Value != 0) // Find which number to draw
                         {
                             _board[i, j].Label.Text = _currentSudoku[i, j].Value.ToString();
                         }
 
-                        if (_board[i, j].IsChosen)
+                        if (_board[i, j].IsChosen && !_board[i,j].IsClashing) // Check for chosen number
                         {
-                            _drawNode.DrawRect(_board[i, j].Rect, fillColor: Common.color1, borderWidth: 1, borderColor: Common.color5);
+                            _board[i, j].Color = Common.color1;
                         }
-                        else
+                        else if(!_board[i,j].IsChosen && !_board[i,j].IsClashing)
                         {
-                            _drawNode.DrawRect(_board[i, j].Rect, fillColor: CCColor4B.White, borderWidth: 1, borderColor: Common.color5);
+                            _board[i, j].Color = CCColor4B.White;
                         }
+                        _drawNode.DrawRect(_board[i, j].Rect, fillColor: _board[i,j].Color /*colorToFill*/, borderWidth: 1, borderColor: Common.color5);
                         _board[i, j].ShouldRedraw = false;
                     }
                 }
             }
         }
 
+        private bool NumberIsClashing(int i, int j)
+        {
+            int value = _currentSudoku[i, j].Value;
+
+            if (value == 0) return false; // Empty field
+
+            if (ColumnContainsNumber(i, j, value)) return true;
+            else if (RowContainsNumber(i, j, value)) return true;
+            else if (RegionContainsNumber(i, j, value)) return true;
+            else return false;
+        }
+
+        private bool RowContainsNumber(int i, int j, int value)
+        {
+            for (int r = 0; r < j; r++)
+            {
+                if (_currentSudoku[i, r].Value == value) return true;
+            }
+            for (int r = j + 1; r < 9; r++)
+            {
+                if (_currentSudoku[i, r].Value == value) return true;
+            }
+            return false;
+        }
+
+        private bool ColumnContainsNumber(int i, int j, int value)
+        {
+            for (int c = 0; c < i; c++)
+            {
+                if (_currentSudoku[c, j].Value == value) return true;
+            }
+            for (int c = i + 1; c < 9; c++)
+            {
+                if (_currentSudoku[c, j].Value == value) return true;
+            }
+            return false;
+        }
+
+        private bool RegionContainsNumber(int i, int j, int value)
+        {
+            if(i < 3) // top regions
+            {
+                if(j < 3) // left
+                {
+                    for (int c = 0; c < 3; c++)
+                    {
+                        if (c == i) continue;
+                        for(int r = 0; r < 3; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+                else if (j < 6) // middle
+                {
+                    for (int c = 0; c < 3; c++)
+                    {
+                        if (c == i) continue;
+                        for (int r = 3; r < 6; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+                else // right
+                {
+                    for (int c = 0; c < 3; c++)
+                    {
+                        if (c == i) continue;
+                        for (int r = 6; r < 9; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+            }
+            else if(i < 6) // middle regions
+            {
+                if (j < 3) // left
+                {
+                    for (int c = 3; c < 6; c++)
+                    {
+                        if (c == i) continue;
+                        for (int r = 0; r < 3; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+                else if (j < 6) // middle
+                {
+                    for (int c = 3; c < 6; c++)
+                    {
+                        if (c == i) continue;
+                        for (int r = 3; r < 6; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+                else // right
+                {
+                    for (int c = 3; c < 6; c++)
+                    {
+                        if (c == i) continue;
+                        for (int r = 6; r < 9; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+            }
+            else // right regions
+            {
+                if (j < 3) // left
+                {
+                    for (int c = 6; c < 9; c++)
+                    {
+                        if (c == i) continue;
+                        for (int r = 0; r < 3; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+                else if (j < 6) // middle
+                {
+                    for (int c = 6; c < 9; c++)
+                    {
+                        if (c == i) continue;
+                        for (int r = 3; r < 6; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+                else // right
+                {
+                    for (int c = 6; c < 9; c++)
+                    {
+                        if (c == i) continue;
+                        for (int r = 6; r < 9; r++)
+                        {
+                            if (r == j) continue;
+
+                            if (_currentSudoku[c, r].Value == value) return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
         private void UpdateChosenField()
         {
             if (!_currentlyChosenField.Equals(_previouslyChosenField))
             {   
-                if (!_previouslyChosenField.Equals(default(Field))) // Not the first time any field is chosen
+                if (_previouslyChosenField.IsValid()) // Not the first time any field is chosen
                 {
                     _board[_previouslyChosenField.I, _previouslyChosenField.J].ShouldRedraw = true;
                     _board[_previouslyChosenField.I, _previouslyChosenField.J].IsChosen = false;
@@ -202,7 +409,7 @@ namespace CocosSharpSudoku
 
                 // Check for board fields touched
                 Field clickedField = GetTouchedField(touches[0].Location);
-                if (!clickedField.Equals(default(Field)))
+                if (clickedField.IsValid())
                 {
                     _board[clickedField.I, clickedField.J].ShouldRedraw = true;
                     _board[clickedField.I, clickedField.J].IsChosen = true;
@@ -218,7 +425,7 @@ namespace CocosSharpSudoku
 
                         _currentChosenNumber = i + 1;
                         Console.WriteLine("Number touched: " + (i + 1));
-                        if(!_currentlyChosenField.Equals(default(Field)))
+                        if(_currentlyChosenField.IsValid())
                         {
                             _currentSudoku[_currentlyChosenField.I, _currentlyChosenField.J].Value = _currentChosenNumber;
                             _board[_currentlyChosenField.I, _currentlyChosenField.J].ShouldRedraw = true;
@@ -230,7 +437,7 @@ namespace CocosSharpSudoku
 
         private Field GetTouchedField(CCPoint location)
         {
-            Field field = new Field();
+            Field field = new Field(-1, -1);
             for (int i = 0; i < 9; i++)
             {
                 for (int j = 0; j < 9; j++)
@@ -289,12 +496,12 @@ namespace CocosSharpSudoku
                 }
             }
 
-            DrawOuterFields();
+            DrawRegionBorders();
 
         }
 
 
-        private void DrawOuterFields()
+        private void DrawRegionBorders()
         {
             // Draw the 9 big fields with thicker border
             int bigFieldSize = 3 * _fieldSize;

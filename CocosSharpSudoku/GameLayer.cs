@@ -65,7 +65,6 @@ namespace CocosSharpSudoku
         private int _fieldSize;
         private CCSprite[] _numbers;
         private int _currentChosenNumber;
-        private int _previouslyChosenNumber;
         private Field _previouslyChosenField;
         private Field _currentlyChosenField;
         private CCDrawNode _drawNode;
@@ -79,7 +78,7 @@ namespace CocosSharpSudoku
             _currentSudoku = new Square[9, 9];
             _board = new BoardSquare[9, 9];
             _numbers = new CCSprite[9];
-            _currentChosenNumber = _previouslyChosenNumber = 0;
+            _currentChosenNumber = 0;
             _currentlyChosenField = new Field(-1, -1);
             _previouslyChosenField = new Field(-1, -1);
 
@@ -138,8 +137,8 @@ namespace CocosSharpSudoku
             _secondsSinceLastUpdate += frameTimeInSeconds;
             if (_secondsSinceLastUpdate >= TIME_TO_UPDATE)
             {
-                UpdateChosenField();
                 CheckForClashingNumbers();
+                UpdateChosenField();
                 UpdateBoard();
                 DrawRegionBorders();
                 _secondsSinceLastUpdate = 0.0f;
@@ -152,7 +151,8 @@ namespace CocosSharpSudoku
             {
                 for(int j = 0; j < 9; j++)
                 {
-                    if (NumberIsClashing(i, j))
+                    if (NumberIsClashing(i, j) 
+                        && !_board[i,j].IsChosen) // don't overwrite the CHOSEN color
                     {
                         _board[i, j].ShouldRedraw = true;
                         _board[i, j].IsClashing = true;
@@ -182,11 +182,6 @@ namespace CocosSharpSudoku
                         if (_currentSudoku[i, j].Value != 0) // Find which number to draw
                         {
                             _board[i, j].Label.Text = _currentSudoku[i, j].Value.ToString();
-                        }
-
-                        if (_board[i, j].IsChosen && !_board[i,j].IsClashing) // Check for chosen number
-                        {
-                            _board[i, j].Color = Common.color1;
                         }
                         else if(!_board[i,j].IsChosen && !_board[i,j].IsClashing)
                         {
@@ -379,6 +374,7 @@ namespace CocosSharpSudoku
                 }
 
                 _board[_currentlyChosenField.I, _currentlyChosenField.J].ShouldRedraw = true;
+                _board[_currentlyChosenField.I, _currentlyChosenField.J].Color = Common.color1;
                 _board[_currentlyChosenField.I, _currentlyChosenField.J].IsChosen = true;
 
                 _previouslyChosenField = _currentlyChosenField;
